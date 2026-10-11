@@ -1,0 +1,214 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Bank Management System</title>
+<style>
+*{box-sizing:border-box}
+body{font-family:Arial,sans-serif;background:#f3f4f6;margin:0;padding:20px;color:#222}
+.container{max-width:1000px;margin:auto;background:#fff;padding:25px;border-radius:12px;box-shadow:0 4px 15px #0001}
+h1{text-align:center;color:#2563eb;margin-top:0}
+.summary{display:grid;grid-template-columns:repeat(3,1fr);gap:12px;margin-bottom:20px}
+.card{background:#eef4ff;padding:15px;border-radius:8px;text-align:center}
+.card h3{margin:5px 0;color:#555}
+.card p{font-size:22px;font-weight:bold;color:#2563eb;margin:8px 0}
+.form{display:grid;grid-template-columns:repeat(2,1fr);gap:10px}
+input,select{padding:11px;border:1px solid #ccc;border-radius:6px;width:100%}
+button{padding:10px 14px;border:0;border-radius:6px;background:#2563eb;color:white;cursor:pointer}
+button:hover{opacity:.9}
+.add{grid-column:1/-1}
+.search{margin:20px 0 10px}
+table{width:100%;border-collapse:collapse;margin-top:10px}
+th,td{border:1px solid #ddd;padding:10px;text-align:center}
+th{background:#2563eb;color:white}
+.deposit{background:#16a34a}
+.withdraw{background:#f59e0b}
+.delete{background:#dc2626}
+.empty{text-align:center;padding:20px;color:#777}
+@media(max-width:650px){
+.summary{grid-template-columns:1fr}
+.form{grid-template-columns:1fr}
+table{font-size:12px}
+th,td{padding:7px}
+}
+</style>
+</head>
+<body>
+
+<div class="container">
+<h1>Bank Management System</h1>
+
+<div class="summary">
+<div class="card">
+<h3>Total Accounts</h3>
+<p id="totalAccounts">0</p>
+</div>
+<div class="card">
+<h3>Total Balance</h3>
+<p id="totalBalance">₹0</p>
+</div>
+<div class="card">
+<h3>Total Transactions</h3>
+<p id="totalTransactions">0</p>
+</div>
+</div>
+
+<div class="form">
+<input id="accountNo" placeholder="Account Number">
+<input id="name" placeholder="Customer Name">
+<input id="phone" placeholder="Phone Number">
+<select id="accountType">
+<option value="">Select Account Type</option>
+<option>Savings</option>
+<option>Current</option>
+</select>
+<input id="balance" type="number" min="0" placeholder="Initial Balance">
+<button class="add" onclick="addAccount()">Create Account</button>
+</div>
+
+<input class="search" id="search" placeholder="Search account or customer..." oninput="displayAccounts()">
+
+<table>
+<thead>
+<tr>
+<th>Account No</th>
+<th>Name</th>
+<th>Phone</th>
+<th>Type</th>
+<th>Balance</th>
+<th>Action</th>
+</tr>
+</thead>
+<tbody id="accountTable"></tbody>
+</table>
+</div>
+
+<script>
+let accounts=JSON.parse(localStorage.getItem("bankAccounts"))||[];
+let transactions=Number(localStorage.getItem("bankTransactions"))||0;
+
+function saveData(){
+    localStorage.setItem("bankAccounts",JSON.stringify(accounts));
+    localStorage.setItem("bankTransactions",transactions);
+}
+
+function addAccount(){
+    const accountNo=document.getElementById("accountNo").value.trim();
+    const name=document.getElementById("name").value.trim();
+    const phone=document.getElementById("phone").value.trim();
+    const type=document.getElementById("accountType").value;
+    const balance=Number(document.getElementById("balance").value);
+
+    if(!accountNo||!name||!phone||!type||balance<0){
+        alert("Please fill all fields correctly.");
+        return;
+    }
+
+    if(accounts.some(a=>a.accountNo===accountNo)){
+        alert("Account number already exists.");
+        return;
+    }
+
+    accounts.push({accountNo,name,phone,type,balance});
+    saveData();
+    clearForm();
+    displayAccounts();
+    alert("Account created successfully!");
+}
+
+function deposit(index){
+    const amount=Number(prompt("Enter deposit amount:"));
+    if(!amount||amount<=0){
+        alert("Enter a valid amount.");
+        return;
+    }
+
+    accounts[index].balance+=amount;
+    transactions++;
+    saveData();
+    displayAccounts();
+    alert("Deposit successful!");
+}
+
+function withdraw(index){
+    const amount=Number(prompt("Enter withdrawal amount:"));
+    if(!amount||amount<=0){
+        alert("Enter a valid amount.");
+        return;
+    }
+
+    if(amount>accounts[index].balance){
+        alert("Insufficient balance.");
+        return;
+    }
+
+    accounts[index].balance-=amount;
+    transactions++;
+    saveData();
+    displayAccounts();
+    alert("Withdrawal successful!");
+}
+
+function deleteAccount(index){
+    if(confirm("Are you sure you want to delete this account?")){
+        accounts.splice(index,1);
+        saveData();
+        displayAccounts();
+    }
+}
+
+function displayAccounts(){
+    const table=document.getElementById("accountTable");
+    const search=document.getElementById("search").value.toLowerCase();
+
+    const filtered=accounts.map((a,i)=>({a,i})).filter(x=>
+        x.a.accountNo.toLowerCase().includes(search)||
+        x.a.name.toLowerCase().includes(search)
+    );
+
+    if(filtered.length===0){
+        table.innerHTML='<tr><td colspan="6" class="empty">No accounts found</td></tr>';
+    }else{
+        table.innerHTML=filtered.map(x=>`
+        <tr>
+            <td>${escapeHtml(x.a.accountNo)}</td>
+            <td>${escapeHtml(x.a.name)}</td>
+            <td>${escapeHtml(x.a.phone)}</td>
+            <td>${escapeHtml(x.a.type)}</td>
+            <td>₹${x.a.balance.toFixed(2)}</td>
+            <td>
+                <button class="deposit" onclick="deposit(${x.i})">Deposit</button>
+                <button class="withdraw" onclick="withdraw(${x.i})">Withdraw</button>
+                <button class="delete" onclick="deleteAccount(${x.i})">Delete</button>
+            </td>
+        </tr>
+        `).join("");
+    }
+
+    document.getElementById("totalAccounts").textContent=accounts.length;
+    document.getElementById("totalBalance").textContent=
+        "₹"+accounts.reduce((sum,a)=>sum+a.balance,0).toFixed(2);
+    document.getElementById("totalTransactions").textContent=transactions;
+}
+
+function clearForm(){
+    document.getElementById("accountNo").value="";
+    document.getElementById("name").value="";
+    document.getElementById("phone").value="";
+    document.getElementById("accountType").value="";
+    document.getElementById("balance").value="";
+}
+
+function escapeHtml(value){
+    return String(value).replace(/[&<>"']/g,m=>({
+        "&":"&amp;","<":"&lt;",">":"&gt;",
+        '"':"&quot;","'":"&#039;"
+    }[m]));
+}
+
+displayAccounts();
+</script>
+
+</body>
+</html>
